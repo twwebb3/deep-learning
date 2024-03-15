@@ -70,7 +70,8 @@ val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
-# Define the RNN model
+
+# Define the RNN model (84.09 % accuracy)
 class RNN(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
         super(RNN, self).__init__()
@@ -86,20 +87,37 @@ class RNN(nn.Module):
         return out
 
 
+class LSTMModel(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, dropout_rate=0.5):
+        super(LSTMModel, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers=1, batch_first=True)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, text):
+        embedded = self.embedding(text)
+        output, (hidden, _) = self.lstm(embedded)
+        last_output = output[:, -1, :]
+        last_output = self.dropout(last_output)  # Apply dropout
+        out = self.fc(last_output)
+        return out
+
+
 # Instantiate the model
 vocab_size = len(vocab)  # Vocabulary size
 embedding_dim = 100  # Size of the embedding vectors
 hidden_dim = 256  # Number of features in the hidden state
 output_dim = len(label_encoder.classes_)  # Number of output classes
 
-model = RNN(vocab_size, embedding_dim, hidden_dim, output_dim).to(device)
+model = LSTMModel(vocab_size, embedding_dim, hidden_dim, output_dim).to(device)
 
 # Define the loss function and optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters())
 
 # Training the model
-num_epochs = 5
+num_epochs = 20
 
 for epoch in range(num_epochs):
     model.train()
